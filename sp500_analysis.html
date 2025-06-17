@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>S&P 500 Investment Strategy Comparison - Accurate Data</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/1.2.1/chartjs-plugin-zoom.min.js"></script>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -66,6 +67,15 @@
         .chart-container {
             margin: 30px 0;
             height: 400px;
+        }
+        .chart-controls {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 10px;
+        }
+        .chart-controls label {
+            font-weight: 600;
         }
         .transactions {
             margin-top: 20px;
@@ -183,7 +193,12 @@
         <div class="chart-container">
             <canvas id="performanceChart"></canvas>
         </div>
-        
+        <div class="chart-controls">
+            <label><input type="checkbox" id="toggleStrategy1" checked> Strategy 1</label>
+            <label><input type="checkbox" id="toggleStrategy2" checked> Strategy 2</label>
+            <label><input type="checkbox" id="toggleTransactions" checked> Dip Purchases</label>
+        </div>
+
         <div class="transactions">
             <h3>Strategy 2 - Buy the Dip Transactions</h3>
             <div id="transaction-list">
@@ -288,14 +303,17 @@
             totalReturn: (((totalShares * endPrice) + (initialInvestment - totalInvested) - initialInvestment) / initialInvestment) * 100 // 43.51%
         };
 
+        let performanceChart; // Chart instance for interactivity
+
         // Create performance chart
         function createChart() {
             const ctx = document.getElementById('performanceChart').getContext('2d');
-            
+
             const labels = [];
             const strategy1Values = [];
             const strategy2Values = [];
-            
+            const transactionPoints = [];
+
             let s2Shares = 0;
             let s2Cash = 10000;
             let txIndex = 0;
@@ -311,13 +329,17 @@
                     const tx = dipTransactions[txIndex];
                     s2Shares += tx.amount / tx.price;
                     s2Cash -= tx.amount;
+                    transactionPoints.push({
+                        x: new Date(tx.date).toLocaleDateString(),
+                        y: s2Shares * dataPoint.price + s2Cash
+                    });
                     txIndex++;
                 }
-                
+
                 strategy2Values.push(s2Shares * dataPoint.price + s2Cash);
             });
 
-            new Chart(ctx, {
+            performanceChart = new Chart(ctx, {
                 type: 'line',
                 data: {
                     labels: labels,
@@ -337,6 +359,15 @@
                         tension: 0.4,
                         pointRadius: 4,
                         pointHoverRadius: 6
+                    }, {
+                        type: 'scatter',
+                        label: 'Dip Purchases',
+                        data: transactionPoints,
+                        borderColor: '#ffc107',
+                        backgroundColor: '#ffc107',
+                        pointStyle: 'triangle',
+                        pointRadius: 6,
+                        pointHoverRadius: 8
                     }]
                 },
                 options: {
@@ -351,6 +382,27 @@
                         legend: {
                             display: true,
                             position: 'top'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                afterBody: (items) => {
+                                    if (items.length >= 2) {
+                                        const diff = items[0].parsed.y - items[1].parsed.y;
+                                        return 'Difference: $' + diff.toFixed(2);
+                                    }
+                                }
+                            }
+                        },
+                        zoom: {
+                            pan: {
+                                enabled: true,
+                                mode: 'xy'
+                            },
+                            zoom: {
+                                wheel: { enabled: true },
+                                pinch: { enabled: true },
+                                mode: 'xy'
+                            }
                         }
                     },
                     scales: {
@@ -382,8 +434,23 @@
             });
         }
 
-        // Initialize chart when page loads
-        window.addEventListener('load', createChart);
+        // Initialize chart when page loads and wire up controls
+        window.addEventListener('load', () => {
+            createChart();
+
+            document.getElementById('toggleStrategy1').addEventListener('change', (e) => {
+                performanceChart.setDatasetVisibility(0, e.target.checked);
+                performanceChart.update();
+            });
+            document.getElementById('toggleStrategy2').addEventListener('change', (e) => {
+                performanceChart.setDatasetVisibility(1, e.target.checked);
+                performanceChart.update();
+            });
+            document.getElementById('toggleTransactions').addEventListener('change', (e) => {
+                performanceChart.setDatasetVisibility(2, e.target.checked);
+                performanceChart.update();
+            });
+        });
     </script>
 </body>
 </html>
